@@ -51,9 +51,9 @@ Built as part of the **WorkElate AI Native Office Intern** assessment.
 | **Keyboard Navigation** | Arrow keys, Tab, Enter, F2, Delete, Ctrl+Home/End |
 | **Sheet Rename** | Double-click the sheet name in the header |
 | **Cell Formatting** | Bold, Italic, Underline, Font Size, Color, Fill, Alignment |
-| **Formula Engine** | SUM, AVG, MIN, MAX, arithmetic, circular ref detection |
 | **Undo / Redo** | Full history via Ctrl+Z / Ctrl+Y |
 | **Row & Col Management** | Insert/delete at selected position |
+| **Multi-cell range copy/paste** with single Ctrl+Z undo | Added batchSetCells + batch undo/redo to core engine|
 
 ---
 
