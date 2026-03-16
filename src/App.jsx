@@ -5,23 +5,34 @@ import { createSortEngine } from './engine/sortEngine.js'
 import { createFilterEngine } from './engine/filterEngine.js'
 import FilterDropdown from './components/FilterDropdown.jsx'
 import { useClipboard } from './hooks/useClipboard.js'
+import { useLocalStorage, loadFromStorage, restoreCells } from './hooks/useLocalStorage.js'
 
 const TOTAL_ROWS = 50
 const TOTAL_COLS = 50
 
 export default function App() {
   // Core spreadsheet engine — created once
-  const [engine] = useState(() => createEngine(TOTAL_ROWS, TOTAL_COLS))
+  const [engine] = useState(() => {
+    const eng = createEngine(TOTAL_ROWS, TOTAL_COLS)
+    // Restore saved cells on first load — happens before first render
+    const saved = loadFromStorage()
+    if (saved) restoreCells(eng, saved.cells)
+    return eng
+  })
 
   // Sort and filter engines are also created once and share the core engine reference
   const [sortEngine] = useState(() => createSortEngine(engine))
   const [filterEngine] = useState(() => createFilterEngine(engine))
 
-  const [, setVersion] = useState(0)
+  const [version, setVersion] = useState(0)
   const [selectedCell, setSelectedCell] = useState(null)
   const [editingCell, setEditingCell] = useState(null)
   const [editValue, setEditValue] = useState('')
-  const [cellStyles, setCellStyles] = useState({})
+  const [cellStyles, setCellStyles] = useState(() => {
+    // Restore saved styles on first load
+    const saved = loadFromStorage()
+    return saved?.styles ?? {}
+  })
 
   // viewRows: the ordered list of data-row indices to render (view-layer sort/filter)
   const [viewRows, setViewRows] = useState(() =>
@@ -72,6 +83,10 @@ export default function App() {
       forceRerender()
     }, [refreshViewRows, forceRerender]),
   })
+
+  // ────── Local storage persistence ──────
+  // Watches version + cellStyles; debounced 500ms save on every change
+  useLocalStorage({ engine, cellStyles, version })
 
   // ────── Cell style helpers ──────
 
