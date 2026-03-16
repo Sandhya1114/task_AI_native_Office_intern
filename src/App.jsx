@@ -512,7 +512,7 @@ export default function App() {
 
         if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); startEditing(r, c) }
         // Start typing directly into selected cell
-        if (!ctrl && e.key.length === 1 && !e.altKey) { startEditing(r, c); setEditValue(e.key) }
+        if (!ctrl && e.key.length === 1 && !e.altKey) { e.preventDefault(); startEditing(r, c); setEditValue(e.key) }
       }
     }
     window.addEventListener('keydown', onKey)
