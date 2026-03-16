@@ -4,6 +4,7 @@ import { createEngine } from './engine/core.js'
 import { createSortEngine } from './engine/sortEngine.js'
 import { createFilterEngine } from './engine/filterEngine.js'
 import FilterDropdown from './components/FilterDropdown.jsx'
+import { useClipboard } from './hooks/useClipboard.js'
 
 const TOTAL_ROWS = 50
 const TOTAL_COLS = 50
@@ -61,6 +62,17 @@ export default function App() {
     refreshViewRows()
   }, [filterEngine, refreshViewRows])
 
+  // ────── Clipboard (Ctrl+C / Ctrl+V) ──────
+  // Placed here so it has access to refreshViewRows and forceRerender
+  useClipboard({
+    engine,
+    selectedCell,
+    onAfterPaste: useCallback(() => {
+      refreshViewRows()
+      forceRerender()
+    }, [refreshViewRows, forceRerender]),
+  })
+
   // ────── Cell style helpers ──────
 
   const getCellStyle = useCallback((row, col) => {
@@ -100,14 +112,21 @@ export default function App() {
     setEditingCell(null)
   }, [engine, editValue, forceRerender, refreshViewRows])
 
+  // Single click: select only, no edit mode.
+  // This prevents the cell input from stealing focus before Ctrl+V fires.
   const handleCellClick = useCallback((row, col) => {
     if (editingCell && (editingCell.r !== row || editingCell.c !== col)) {
       commitEdit(editingCell.r, editingCell.c)
     }
-    if (!editingCell || editingCell.r !== row || editingCell.c !== col) {
-      startEditing(row, col)
-    }
-  }, [editingCell, commitEdit, startEditing])
+    setSelectedCell({ r: row, c: col })
+    setEditingCell(null)
+    document.activeElement?.blur()
+  }, [editingCell, commitEdit])
+
+  // Double click: enter edit mode
+  const handleCellDoubleClick = useCallback((row, col) => {
+    startEditing(row, col)
+  }, [startEditing])
 
   // ────── Keyboard navigation ──────
 
@@ -481,6 +500,7 @@ export default function App() {
                         className={`cell ${isSelected ? 'selected' : ''}`}
                         style={{ background: style.bg || 'white' }}
                         onMouseDown={(e) => { e.preventDefault(); handleCellClick(dataRow, colIndex) }}
+                        onDoubleClick={() => handleCellDoubleClick(dataRow, colIndex)}
                       >
                         {isEditing ? (
                           <input
@@ -525,7 +545,7 @@ export default function App() {
         </div>
 
         <p className="footer-hint">
-          Click column letter to sort (▲▼) · Click ▾ icon to filter · Formulas: =SUM(A1:A5) · =AVG() · =MAX() · =MIN()
+          Click column letter to sort (▲▼) · Click ▾ to filter · Ctrl+C copy · Ctrl+V paste (Excel/Sheets supported) · Formulas: =SUM(A1:A5) · =AVG() · =MAX() · =MIN()
         </p>
       </div>
     </div>
