@@ -87,7 +87,9 @@ export default function App() {
 
   // ── Clipboard ──────────────────────────────────────────────
   useClipboard({
-    engine, selectedCell,
+    engine,
+    selectedCell,
+    selectionRange,   // pass range so Ctrl+C copies the whole selection
     onAfterPaste: useCallback(() => { refreshViewRows(); forceRerender() }, [refreshViewRows, forceRerender]),
   })
 
@@ -805,9 +807,9 @@ export default function App() {
                         {isEditing ? (
                           <>
                           <input autoFocus className="cell-input" value={editValue}
+                            onChange={e => { setEditValue(e.target.value); updateAutoSuggest(e.target.value, ci) }}
                             onBlur={() => commitEdit(dataRow, ci)}
                             ref={isSelected ? cellInputRef : undefined}
-                           onChange={e => { setEditValue(e.target.value); updateAutoSuggest(e.target.value, ci) }}
                             onKeyDown={e => {
                               // Tab accepts autocomplete suggestion
                               if (e.key === 'Tab' && autoSuggest) { e.preventDefault(); setEditValue(autoSuggest.value); setAutoSuggest(null); return }

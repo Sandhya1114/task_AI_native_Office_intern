@@ -792,6 +792,37 @@ export function createEngine(initialRows = 50, initialCols = 50) {
         recalculate()
     }
 
+    // ── Batch set — multiple cells as ONE undo entry ──
+    // Used by clipboard paste so Ctrl+Z undoes the whole paste at once.
+    // writes: [{ r, c, value }, ...]
+    function executeBatchSetCells(writes) {
+        if (writes.length === 0) return
+        // Save old values for every cell before writing any
+        const oldValues = writes.map(({ r, c }) => ({
+            r, c,
+            oldVal: getCellRaw(r, c).raw
+        }))
+        // Filter to only cells that actually change
+        const changed = oldValues.filter((entry, i) => entry.oldVal !== writes[i].value)
+        if (changed.length === 0) return
+
+        // Push a single 'batch' undo entry for all cells
+        pushToUndoStack({
+            type: 'batch',
+            cells: changed.map((entry, i) => {
+                const w = writes.find(w => w.r === entry.r && w.c === entry.c)
+                return { r: entry.r, c: entry.c, oldVal: entry.oldVal, newVal: w.value }
+            })
+        })
+
+        // Write all cells
+        for (const { r, c, value } of writes) {
+            setCellRaw(r, c, value)
+        }
+        _generation++
+        recalculate()
+    }
+
     function executeInsertRow(atIndex) {
         const snapshot = takeSnapshot()
         const previousRows = rows
@@ -828,7 +859,14 @@ export function createEngine(initialRows = 50, initialCols = 50) {
         if (undoStack.length === 0) return false
         const entry = undoStack.pop()
 
-        if (entry.type === 'set') {
+        if (entry.type === 'batch') {
+            // Undo all cells in the batch at once
+            const redoCells = entry.cells.map(({ r, c, newVal }) => ({ r, c, oldVal: newVal, newVal: getCellRaw(r, c).raw }))
+            redoStack.push({ type: 'batch', cells: redoCells })
+            for (const { r, c, oldVal } of entry.cells) setCellRaw(r, c, oldVal)
+            _generation++
+            recalculate()
+        } else if (entry.type === 'set') {
             // For cell edits, swap current value to redo stack and restore old value
             const currentValue = getCellRaw(entry.r, entry.c).raw
             redoStack.push({ ...entry, newVal: currentValue })
@@ -859,7 +897,14 @@ export function createEngine(initialRows = 50, initialCols = 50) {
         if (redoStack.length === 0) return false
         const entry = redoStack.pop()
 
-        if (entry.type === 'set') {
+        if (entry.type === 'batch') {
+            // Redo all cells in the batch at once
+            const undoCells = entry.cells.map(({ r, c, newVal }) => ({ r, c, oldVal: getCellRaw(r, c).raw, newVal }))
+            undoStack.push({ type: 'batch', cells: undoCells })
+            for (const { r, c, newVal } of entry.cells) setCellRaw(r, c, newVal)
+            _generation++
+            recalculate()
+        } else if (entry.type === 'set') {
             const currentValue = getCellRaw(entry.r, entry.c).raw
             undoStack.push({ ...entry, oldVal: currentValue })
             setCellRaw(entry.r, entry.c, entry.newVal)
@@ -908,6 +953,7 @@ export function createEngine(initialRows = 50, initialCols = 50) {
         get cols() { return cols },
         getCell: getCellForDisplay,
         setCell: executeSetCell,
+        batchSetCells: executeBatchSetCells,
         insertRow: executeInsertRow,
         deleteRow: executeDeleteRow,
         insertColumn: executeInsertColumn,
